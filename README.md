@@ -1,4 +1,4 @@
-# github-pr-bot
+# sidbot-pr
 
 > A GitHub App built with [Probot](https://github.com/probot/probot) that A probot app to manage PRs
 
