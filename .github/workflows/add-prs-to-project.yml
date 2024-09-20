@@ -9,7 +9,20 @@ jobs:
     name: Add PR to project
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/add-to-project@v0.5.0
+      - name: Add PR to project
+        uses: actions/add-to-project@v0.5.0
         with:
-          project-url: https://github.com/orgs/sidtech-solutions/projects/1
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          project-url: ${{ secrets.PROJECT_URL }}
+          github-token: ${{ secrets.BOT_PAT }}
+      - name: Debug project URL
+        if: failure()
+        run: |
+          echo "Project URL: ${{ secrets.PROJECT_URL }}"
+          echo "Make sure the PROJECT_URL secret is set correctly in your repository settings."
+      - name: Check token permissions
+        if: failure()
+        run: |
+          echo "Ensure your PAT has the following permissions:"
+          echo "- repo (for repository projects)"
+          echo "- org:read (for organization projects)"
+          echo "- project (for all project operations)"
