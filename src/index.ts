@@ -1,5 +1,4 @@
 import { Probot, Context } from "probot";
-import { graphql } from "@octokit/graphql";
 
 interface ProjectV2Data {
   organization: {
@@ -19,13 +18,11 @@ interface ProjectV2Data {
   };
 }
 
-async function getProjectV2Data(context: Context, orgName: string, projectNumber: number): Promise<ProjectV2Data> {
-  const graphqlWithAuth = graphql.defaults({
-    headers: {
-      authorization: `token ${context.octokit.auth()}`,
-    },
-  });
+type FlexibleOctokit = {
+  graphql: (query: string, parameters?: Record<string, any>) => Promise<any>;
+};
 
+async function getProjectV2Data(octokit: FlexibleOctokit, orgName: string, projectNumber: number): Promise<ProjectV2Data> {
   const query = `
     query($orgName: String!, $projectNumber: Int!) {
       organization(login: $orgName) {
@@ -48,10 +45,12 @@ async function getProjectV2Data(context: Context, orgName: string, projectNumber
     }
   `;
 
-  return graphqlWithAuth(query, {
+  const result = await octokit.graphql(query, {
     orgName,
     projectNumber,
   });
+
+  return result as ProjectV2Data;
 }
 
 async function getColumnOptionId(projectData: ProjectV2Data, columnName: string): Promise<string | null> {
@@ -71,29 +70,35 @@ async function getColumnOptionId(projectData: ProjectV2Data, columnName: string)
 }
 
 async function addPullRequestToProject(
-  context: Context,
+  octokit: FlexibleOctokit,
   projectId: string,
   prNodeId: string,
   statusOptionId: string,
   statusFieldId: string
 ): Promise<void> {
-  const graphqlWithAuth = graphql.defaults({
-    headers: {
-      authorization: `token ${context.octokit.auth()}`,
-    },
-  });
-
-  const mutation = `
-    mutation($projectId: ID!, $prNodeId: ID!, $statusFieldId: ID!, $statusOptionId: String!) {
+  const addMutation = `
+    mutation($projectId: ID!, $prNodeId: ID!) {
       addProjectV2ItemById(input: {projectId: $projectId, contentId: $prNodeId}) {
         item {
           id
         }
       }
+    }
+  `;
+
+  const addResult = await octokit.graphql(addMutation, {
+    projectId,
+    prNodeId,
+  });
+
+  const itemId = addResult.addProjectV2ItemById.item.id;
+
+  const updateMutation = `
+    mutation($projectId: ID!, $itemId: ID!, $statusFieldId: ID!, $statusOptionId: String!) {
       updateProjectV2ItemFieldValue(
         input: {
           projectId: $projectId
-          itemId: $prNodeId
+          itemId: $itemId
           fieldId: $statusFieldId
           value: { 
             singleSelectOptionId: $statusOptionId
@@ -107,9 +112,9 @@ async function addPullRequestToProject(
     }
   `;
 
-  await graphqlWithAuth(mutation, {
+  await octokit.graphql(updateMutation, {
     projectId,
-    prNodeId,
+    itemId,
     statusFieldId,
     statusOptionId,
   });
@@ -122,11 +127,11 @@ export default (app: Probot) => {
     console.log("PR number is", prNumber);
 
     try {
-      const orgName = "your-organization-name";
-      const projectNumber = 1; // Replace with your actual project number
-      const columnName = 'ToDo';
+      const orgName = "sidtech-solutions";
+      const projectNumber = 2;
+      const columnName = 'Todo';
 
-      const projectData = await getProjectV2Data(context, orgName, projectNumber);
+      const projectData = await getProjectV2Data(context.octokit, orgName, projectNumber);
       const projectId = projectData.organization.projectV2.id;
 
       const statusOptionId = await getColumnOptionId(projectData, columnName);
@@ -137,7 +142,7 @@ export default (app: Probot) => {
         return;
       }
 
-      await addPullRequestToProject(context, projectId, prNodeId, statusOptionId, statusField.id);
+      await addPullRequestToProject(context.octokit, projectId, prNodeId, statusOptionId, statusField.id);
 
       context.log.info(`Added PR #${prNumber} to project column ${columnName}`);
 

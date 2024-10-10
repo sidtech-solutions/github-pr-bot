@@ -15,10 +15,11 @@
     "build": "tsc",
     "start": "probot run ./lib/index.js",
     "test": "vitest"
-  }, 
+  },
   "dependencies": {
     "@octokit/graphql": "^8.1.1",
-    "probot": "^13.0.1"
+    "@octokit/rest": "^21.0.2",
+    "probot": "13.3.8"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
