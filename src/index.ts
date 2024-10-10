@@ -19,6 +19,7 @@ interface ProjectV2Data {
   };
 }
 
+// for PRs sake
 async function getProjectV2Data(context: Context, orgName: string, projectNumber: number): Promise<ProjectV2Data> {
   const graphqlWithAuth = graphql.defaults({
     headers: {
